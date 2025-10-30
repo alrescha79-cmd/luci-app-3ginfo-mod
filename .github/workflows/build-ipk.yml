@@ -1,6 +1,8 @@
 name: "Auto compile with OpenWrt SDK"
+
 permissions:
   contents: write
+
 on:
   repository_dispatch:
   workflow_dispatch:
@@ -8,12 +10,13 @@ on:
       ssh:
         description: "SSH connection to Actions"
         required: true
-        default: "false"
+        default: "true"
   push:
     branches:
       - "main"
     paths:
       - "luci-app-3ginfo-lite/Makefile"
+
 env:
   TZ: Asia/Jakarta
 
@@ -24,30 +27,38 @@ jobs:
     outputs:
       ginfo_version: ${{ steps.check_version.outputs.latest_version }}
       has_update: ${{ steps.check_version.outputs.has_update }}
+
     steps:
-      - name: Checkout
+      - name: Checkout repository
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
-          ref: "main"
+          ref: main
 
       - name: Check version
         id: check_version
+        shell: bash
         env:
-          url_release: https://api.github.com/repos/${{ github.repository }}/releases/latest
+          RELEASE_API: https://api.github.com/repos/${{ github.repository }}/releases/latest
         run: |
           latest_version=$(grep -oP 'PKG_VERSION:=\K.*' luci-app-3ginfo-lite/Makefile | sed 's/^/v/')
-          latest_release=$(wget -qO- -t1 -T2 ${{ env.url_release }} | awk -F '"' '/tag_name/{print $4}')
-          has_update=$([ "${latest_version}" != "${latest_release}" ] && echo true || echo false)
-          echo "latest_version=${latest_version}" >> $GITHUB_OUTPUT
-          echo "has_update=${has_update}" >> $GITHUB_OUTPUT
-          echo "latest_version: ${latest_version}"
-          echo "latest_release: ${latest_release}"
-          echo "has_update: ${has_update}"
+          latest_release=$(wget -qO- -t1 -T3 "$RELEASE_API" | jq -r '.tag_name // empty')
 
-      - name: Generate new tag & release
-        if: steps.check_version.outputs.has_update == 'true'
-        uses: softprops/action-gh-release@v1
+          has_update=false
+          if [[ -n "$latest_version" && "$latest_version" != "$latest_release" ]]; then
+            has_update=true
+          fi
+
+          echo "latest_version=$latest_version" >> "$GITHUB_OUTPUT"
+          echo "has_update=$has_update" >> "$GITHUB_OUTPUT"
+
+          echo "Detected version: $latest_version"
+          echo "Latest release:  $latest_release"
+          echo "Has update:      $has_update"
+
+      - name: Create new release tag
+        if: ${{ steps.check_version.outputs.has_update == 'true' }}
+        uses: softprops/action-gh-release@v2
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
@@ -57,88 +68,96 @@ jobs:
   job_build_3ginfo:
     name: Build 3ginfo-lite (main)
     needs: job_check
-    if: needs.job_check.outputs.has_update == 'true'
+    if: ${{ needs.job_check.outputs.has_update == 'true' }}
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+
     steps:
-      - name: Checkout
+      - name: Checkout repository
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
-          ref: "main"
+          ref: main
 
-      - name: Install packages
+      - name: Install required packages
+        shell: bash
         run: |
-          echo "Install packages"
-          sudo -E apt-get -qq update
-          sudo -E apt-get -qq install zstd build-essential clang flex bison g++ gawk gcc-multilib g++-multilib gettext git libncurses5-dev libssl-dev python3-venv rsync unzip zlib1g-dev file wget
-          sudo -E apt-get -qq autoremove --purge
-          sudo -E apt-get -qq clean
+          sudo apt-get -qq update
+          sudo apt-get -qq install -y zstd build-essential clang flex bison g++ gawk gcc-multilib \
+            g++-multilib gettext git libncurses5-dev libssl-dev python3-venv rsync unzip zlib1g-dev file wget jq
+          sudo apt-get -qq autoremove --purge
+          sudo apt-get -qq clean
 
-      - name: Cache openwrt SDK
+      - name: Cache OpenWrt SDK
         id: cache-sdk
         uses: actions/cache@v4
         with:
           path: sdk
-          key: openwrt-sdk-snapshot-x86-64
+          key: openwrt-sdk-x86-64-v24.10.0
 
-      - name: Initialization environment
-        if: steps.cache-sdk.outputs.cache-hit != 'true'
+      - name: Download and extract SDK
+        if: ${{ steps.cache-sdk.outputs.cache-hit != 'true' }}
         env:
-          url_sdk: https://archive.openwrt.org/releases/24.10.0/targets/x86/64/openwrt-sdk-24.10.0-x86-64_gcc-13.3.0_musl.Linux-x86_64.tar.zst
+          SDK_URL: https://archive.openwrt.org/releases/24.10.0/targets/x86/64/openwrt-sdk-24.10.0-x86-64_gcc-13.3.0_musl.Linux-x86_64.tar.zst
+        shell: bash
         run: |
-          wget ${{ env.url_sdk }}
-          file_name=$(echo ${{ env.url_sdk }} | awk -F/ '{print $NF}')
-          mkdir sdk && tar --zstd -xvf $file_name -C ./sdk --strip-components=1
+          wget -q "$SDK_URL"
+          file_name=$(basename "$SDK_URL")
+          mkdir -p sdk
+          tar --zstd -xvf "$file_name" -C sdk --strip-components=1
           cd sdk
           ./scripts/feeds update -a
           ./scripts/feeds install -a
           make defconfig
 
-      - name: Link package to SDK
+      - name: Link luci-app-3ginfo-lite package
+        shell: bash
         run: |
-          ln -s $(pwd)/luci-app-3ginfo-lite sdk/package/luci-app-3ginfo-lite
+          ln -sf "$(pwd)/luci-app-3ginfo-lite" sdk/package/luci-app-3ginfo-lite
 
-      - name: Configure 3ginfo-lite
+      - name: Configure package
+        shell: bash
         run: |
           cd sdk
-          echo "CONFIG_ALL_NONSHARED=n" > .config
-          echo "CONFIG_ALL_KMODS=n" >> .config
-          echo "CONFIG_ALL=n" >> .config
-          echo "CONFIG_AUTOREMOVE=n" >> .config
-          echo "CONFIG_LUCI_LANG_zh_Hans=y" >> .config
-          echo "CONFIG_PACKAGE_luci-app-3ginfo-lite=m" >> .config
+          cat <<EOF > .config
+          CONFIG_ALL_NONSHARED=n
+          CONFIG_ALL_KMODS=n
+          CONFIG_ALL=n
+          CONFIG_AUTOREMOVE=n
+          CONFIG_LUCI_LANG_zh_Hans=y
+          CONFIG_PACKAGE_luci-app-3ginfo-lite=m
+          EOF
           make defconfig
 
-      - name: Compile 3ginfo-lite
+      - name: Compile luci-app-3ginfo-lite
         id: compile
+        shell: bash
         run: |
           cd sdk
-          echo "Building package/luci-app-3ginfo-lite..."
-          make package/luci-app-3ginfo-lite/compile -j1 V=s || exit 1
-          echo "Build completed. Listing output files:"
-          find bin/packages -name "*.ipk" -type f
-          cd ..
-          echo "status=success" >> $GITHUB_OUTPUT
+          echo "Building luci-app-3ginfo-lite..."
+          make package/luci-app-3ginfo-lite/compile -j$(nproc) V=s
+          echo "status=success" >> "$GITHUB_OUTPUT"
 
-      - name: Find and prepare IPK files
+      - name: Find generated IPK files
         id: find_ipk
+        shell: bash
         run: |
-          echo "Searching for IPK files..."
-          find sdk/bin/packages -name "luci-app-3ginfo-lite*.ipk" -type f
-          IPK_FILES=$(find sdk/bin/packages -name "luci-app-3ginfo-lite*.ipk" -type f | tr '\n' ' ')
-          if [ -z "$IPK_FILES" ]; then
+          files=$(find sdk/bin/packages -type f -name "luci-app-3ginfo-lite*.ipk")
+          if [[ -z "$files" ]]; then
             echo "No IPK files found!"
             exit 1
           fi
-          echo "Found IPK files: $IPK_FILES"
-          echo "ipk_files=$IPK_FILES" >> $GITHUB_OUTPUT
+          echo "ipk_files=$files" >> "$GITHUB_OUTPUT"
+          echo "Found IPK files:"
+          echo "$files"
 
-      - name: Upload 3ginfo-lite ipks to release
-        uses: softprops/action-gh-release@v1
-        if: steps.compile.outputs.status == 'success' && steps.find_ipk.outputs.ipk_files != ''
+      - name: Upload IPK files to release
+        if: ${{ steps.compile.outputs.status == 'success' }}
+        uses: softprops/action-gh-release@v2
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           tag_name: ${{ needs.job_check.outputs.ginfo_version }}
           files: |
-            sdk/bin/packages/**/luci-app-3ginfo-lite*.ipk
+            sdk/bin/packages/**/*.ipk
