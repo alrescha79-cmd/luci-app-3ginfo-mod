@@ -1,0 +1,267 @@
+msgid ""
+msgstr ""
+"Content-Type: text/plain; charset=UTF-8\n"
+"Project-Id-Version: luci-app-3ginfo-lite\n"
+"Language: id\n"
+"MIME-Version: 1.0\n"
+"Content-Transfer-Encoding: 8bit\n"
+
+msgid "Configuration 3ginfo-lite"
+msgstr "Konfigurasi 3ginfo-lite"
+
+msgid "Configuration panel for the 3ginfo-lite application."
+msgstr "Panel konfigurasi untuk aplikasi 3ginfo-lite."
+
+msgid "Interface"
+msgstr "Antarmuka"
+
+msgid "Network interface for Internet access."
+msgstr "Antarmuka jaringan untuk akses Internet."
+
+msgid "IP adress / Port for communication with the modem"
+msgstr "Alamat IP / Port untuk komunikasi dengan modem"
+
+msgid "Select the appropriate settings. <br /> \
+			<br />Traditional modem. <br /> \
+			Select one of the available ttyUSBX ports.<br /> \
+			<br />HiLink modem. <br /> \
+			Enter the IP address 192.168.X.X under which the modem is available."
+msgstr "Pilih pengaturan yang sesuai. <br /> \
+			<br />Modem tradisional. <br /> \
+			Pilih salah satu port ttyUSBX yang tersedia.<br /> \
+			<br />Modem HiLink. <br /> \
+			Masukkan alamat IP 192.168.X.X dimana modem dapat diakses."
+
+msgid "Please select a port"
+msgstr "Silakan pilih port"
+
+msgid "HiLink authentication"
+msgstr "Autentikasi HiLink"
+
+msgid "BTS search settings"
+msgstr "Pengaturan pencarian BTS"
+
+msgid "Configure authentication for HiLink modems that require login (e.g., Huawei B312-929 with mac-vlan). Leave empty if your modem doesn't require authentication."
+msgstr "Konfigurasi autentikasi untuk modem HiLink yang memerlukan login (misalnya, Huawei B312-929 dengan mac-vlan). Kosongkan jika modem Anda tidak memerlukan autentikasi."
+
+msgid "HiLink modem IP address"
+msgstr "Alamat IP modem HiLink"
+
+msgid "IP address of the HiLink modem (e.g., 192.168.8.1 or 192.168.1.1). This will override the device setting for HiLink modems."
+msgstr "Alamat IP modem HiLink (misalnya, 192.168.8.1 atau 192.168.1.1). Ini akan menimpa pengaturan perangkat untuk modem HiLink."
+
+msgid "Username"
+msgstr "Nama pengguna"
+
+msgid "Username for HiLink modem login (usually \"admin\")"
+msgstr "Nama pengguna untuk login modem HiLink (biasanya \"admin\")"
+
+msgid "Password"
+msgstr "Kata sandi"
+
+msgid "Password for HiLink modem login"
+msgstr "Kata sandi untuk login modem HiLink"
+
+msgid "Authentication mode"
+msgstr "Mode autentikasi"
+
+msgid "Select how to authenticate with the modem:<br><b>Automatic</b> - Try configured credentials first, then fallback to default \"admin/admin\" if not set<br><b>Manual only</b> - Only use configured username/password, never try default credentials"
+msgstr "Pilih cara autentikasi dengan modem:<br><b>Otomatis</b> - Coba kredensial yang dikonfigurasi terlebih dahulu, lalu gunakan default \"admin/admin\" jika tidak diatur<br><b>Manual saja</b> - Hanya gunakan username/password yang dikonfigurasi, jangan pernah coba kredensial default"
+
+msgid "Automatic (try default if not configured)"
+msgstr "Otomatis (coba default jika tidak dikonfigurasi)"
+
+msgid "Manual only (use configured credentials only)"
+msgstr "Manual saja (gunakan kredensial yang dikonfigurasi saja)"
+
+msgid "Hint: To set up a BTS search engine, all you have to do is select the dedicated website for your location."
+msgstr "Petunjuk: Untuk mengatur mesin pencari BTS, yang perlu Anda lakukan adalah memilih website khusus untuk lokasi Anda."
+
+msgid "Website to search for BTS"
+msgstr "Website untuk mencari BTS"
+
+msgid "Select a website for searching."
+msgstr "Pilih website untuk pencarian."
+
+msgid "Information about 3G/4G connection"
+msgstr "Informasi tentang koneksi 3G/4G"
+
+msgid "Details"
+msgstr "Detail"
+
+msgid "Configuration"
+msgstr "Konfigurasi"
+
+msgid "Status:"
+msgstr "Status:"
+
+msgid "Connection time:"
+msgstr "Waktu koneksi:"
+
+msgid "Downloaded:"
+msgstr "Diunduh:"
+
+msgid "Uploaded:"
+msgstr "Diunggah:"
+
+msgid "Mode:"
+msgstr "Mode:"
+
+msgid "Operator:"
+msgstr "Operator:"
+
+msgid "Signal strength:"
+msgstr "Kekuatan sinyal:"
+
+msgid "Modem type:"
+msgstr "Tipe modem:"
+
+msgid "Additional information"
+msgstr "Informasi tambahan"
+
+msgid "Device"
+msgstr "Perangkat"
+
+msgid "SIM PIN (optional)"
+msgstr "PIN SIM (opsional)"
+
+msgid "Language"
+msgstr "Bahasa"
+
+msgid "Network"
+msgstr "Jaringan"
+
+msgid "Registration status"
+msgstr "Status registrasi"
+
+msgid "LAC / TAC"
+msgstr "LAC / TAC"
+
+msgid "Cell ID"
+msgstr "ID Sel"
+
+msgid "MCC"
+msgstr "MCC"
+
+msgid "MNC"
+msgstr "MNC"
+
+msgid "IMEI"
+msgstr "IMEI"
+
+msgid "IMSI"
+msgstr "IMSI"
+
+msgid "ICCID"
+msgstr "ICCID"
+
+msgid "Temperature"
+msgstr "Suhu"
+
+msgid "Firmware version"
+msgstr "Versi firmware"
+
+msgid "CSQ"
+msgstr "CSQ"
+
+msgid "RSSI"
+msgstr "RSSI"
+
+msgid "RSCP"
+msgstr "RSCP"
+
+msgid "Ec/Io"
+msgstr "Ec/Io"
+
+msgid "RSRP"
+msgstr "RSRP"
+
+msgid "RSRQ"
+msgstr "RSRQ"
+
+msgid "SINR"
+msgstr "SINR"
+
+msgid "PCI"
+msgstr "PCI"
+
+msgid "EARFCN"
+msgstr "EARFCN"
+
+msgid "Band"
+msgstr "Band"
+
+msgid "Information about 3G/4G/5G connection"
+msgstr "Informasi tentang koneksi 3G/4G/5G"
+
+msgid "More information about the 3ginfo mod on the %salrescha79-cmd GitHub%s."
+msgstr "Informasi lebih lanjut tentang 3ginfo mod di %sGitHub alrescha79-cmd%s."
+
+msgid "alrescha79-cmd GitHub"
+msgstr "GitHub alrescha79-cmd"
+
+msgid "USB debug information"
+msgstr "Informasi debug USB"
+
+msgid "General Information"
+msgstr "Informasi Umum"
+
+msgid "Modem Information"
+msgstr "Informasi Modem"
+
+msgid "Cell / Signal Information"
+msgstr "Informasi Sel / Sinyal"
+
+msgid "3ginfo"
+msgstr "3ginfo"
+
+msgid "3ginfo-lite"
+msgstr "3ginfo-lite"
+
+msgid "Connected"
+msgstr "Terhubung"
+
+msgid "Disconnected"
+msgstr "Terputus"
+
+msgid "Connecting"
+msgstr "Menghubungkan"
+
+msgid "Unknown"
+msgstr "Tidak diketahui"
+
+msgid "Registered"
+msgstr "Terdaftar"
+
+msgid "Not registered"
+msgstr "Tidak terdaftar"
+
+msgid "Searching"
+msgstr "Mencari"
+
+msgid "Registration denied"
+msgstr "Registrasi ditolak"
+
+msgid "Roaming"
+msgstr "Roaming"
+
+msgid "Diagnostics"
+msgstr "Diagnostik"
+
+msgid "Execution of various commands to check the availability of the modem and eliminate errors in the data collected by the scripts."
+msgstr "Eksekusi berbagai perintah untuk memeriksa ketersediaan modem dan menghilangkan kesalahan dalam data yang dikumpulkan oleh skrip."
+
+msgid "Show devices"
+msgstr "Tampilkan perangkat"
+
+msgid "Debug"
+msgstr "Debug"
+
+msgid "Clear"
+msgstr "Bersihkan"
+
+msgid "Download"
+msgstr "Unduh"
+
+msgid "Download error"
+msgstr "Kesalahan unduh"

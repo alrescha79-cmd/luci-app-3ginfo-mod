@@ -1,0 +1,8 @@
+
+config 3ginfo
+	option device ''
+	option website 'http://www.btsearch.pl/szukaj.php?mode=std&search='
+	option hilink_ip ''
+	option hilink_username ''
+	option hilink_password ''
+	option hilink_auth_mode 'auto'
