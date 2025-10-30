@@ -13,6 +13,9 @@
 
 This modified version adds **full support for HiLink modems** (Huawei/Orbit) that use **mac-vlan connection method**:
 
+### Screenshot
+![image](image.png)
+
 ### ✨ New Features:
 - ✅ **HiLink Authentication System** - Support for modems that require login (e.g., Huawei B312-926/929)
 - ✅ **Multiple Authentication Methods** - SHA256 hash, base64 encoding, token-based, session-based
