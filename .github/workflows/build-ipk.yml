@@ -60,6 +60,12 @@ jobs:
     if: needs.job_check.outputs.has_update == 'true'
     runs-on: ubuntu-latest
     steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: "main"
+
       - name: Install packages
         run: |
           echo "Install packages"
@@ -81,48 +87,43 @@ jobs:
           url_sdk: https://archive.openwrt.org/releases/24.10.0/targets/x86/64/openwrt-sdk-24.10.0-x86-64_gcc-13.3.0_musl.Linux-x86_64.tar.zst
         run: |
           wget ${{ env.url_sdk }}
-          file_name=$(echo ${{env.url_sdk}} | awk -F/ '{print $NF}')
+          file_name=$(echo ${{ env.url_sdk }} | awk -F/ '{print $NF}')
           mkdir sdk && tar --zstd -xvf $file_name -C ./sdk --strip-components=1
-          cd sdk  
-          echo "src-git base https://github.com/openwrt/openwrt.git;main" > feeds.conf
-          echo "src-git-full packages https://github.com/openwrt/packages.git;master" >> feeds.conf
-          echo "src-git-full luci https://github.com/openwrt/luci.git;master" >> feeds.conf
-          echo "src-git-full routing https://git.openwrt.org/feed/routing.git;master"  >> feeds.conf
-          git clone -b main https://github.com/${{ github.repository }}.git package/downloads/luci-app-3ginfo-mod
+          cd sdk
           ./scripts/feeds update -a
-          echo "CONFIG_PACKAGE_luci-app-3ginfo-mod=m" > .config
-          ./scripts/feeds install -d n luci-app-3ginfo-mod
-          make download -j8
+          ./scripts/feeds install -a
+          make defconfig
 
-      - name: Configure 3ginfo (main)
+      - name: Link package to SDK
+        run: |
+          ln -s $(pwd)/luci-app-3ginfo-lite sdk/package/luci-app-3ginfo-lite
+
+      - name: Configure 3ginfo-lite
         run: |
           cd sdk
-          ./scripts/feeds install luci-app-3ginfo-mod
           echo "CONFIG_ALL_NONSHARED=n" > .config
           echo "CONFIG_ALL_KMODS=n" >> .config
           echo "CONFIG_ALL=n" >> .config
           echo "CONFIG_AUTOREMOVE=n" >> .config
           echo "CONFIG_LUCI_LANG_zh_Hans=y" >> .config
-          echo "CONFIG_PACKAGE_luci-app-3ginfo-mod=m" >> .config
+          echo "CONFIG_PACKAGE_luci-app-3ginfo-lite=m" >> .config
           make defconfig
 
-      - name: Compile 3ginfo (main)
+      - name: Compile 3ginfo-lite
         id: compile
         run: |
           cd sdk
-          echo "make package/luci-app-3ginfo-mod/{clean,compile} -j$(nproc)"
-          make package/luci-app-3ginfo-mod/{clean,compile} -j$(nproc)
-          mv bin/packages/x86_64/base/ ../
-          rm .config .config.old
+          echo "Building package/luci-app-3ginfo-lite..."
+          make package/luci-app-3ginfo-lite/compile -j1 V=s || exit 1
           cd ..
           echo "status=success" >> $GITHUB_OUTPUT
-          echo "FIRMWARE=$PWD" >> $GITHUB_ENV
+          echo "FIRMWARE=$PWD/sdk/bin/packages/x86_64" >> $GITHUB_ENV
 
-      - name: Upload 3ginfo-lite (main) ipks to release
+      - name: Upload 3ginfo-lite ipks to release
         uses: softprops/action-gh-release@v1
         if: steps.compile.outputs.status == 'success'
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           tag_name: ${{ needs.job_check.outputs.ginfo_version }}
-          files: ${{ env.FIRMWARE }}/base/luci-app-3ginfo-mod*.*
+          files: ${{ env.FIRMWARE }}/*/luci-app-3ginfo-lite*.*
