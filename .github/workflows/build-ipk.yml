@@ -30,15 +30,14 @@ env:
 
 jobs:
   job_check:
-    if: github.repository == ${{ github.repository }}
     name: Check Version
     runs-on: ubuntu-latest
     outputs:
-      3ginfo_version: ${{ steps.check_version.outputs.latest_version }}
+      ginfo_version: ${{ steps.check_version.outputs.latest_version }}
       has_update: ${{ steps.check_version.outputs.has_update }}
     steps:
       - name: Checkout
-        uses: actions/checkout@main
+        uses: actions/checkout@v4
         with:
           fetch-depth: 0
           ref: "main"
@@ -48,8 +47,8 @@ jobs:
         env:
           url_release: https://api.github.com/repos/${{ github.repository }}/releases/latest
         run: |
-          latest_version=$(grep -oP 'PKG_VERSION:=\K.*' Makefile | sed 's/^/v/')
-          latest_release=$(wget -qO- -t1 -T2 ${{env.url_release}} | awk -F '"' '/tag_name/{print $4}')
+          latest_version=$(grep -oP 'PKG_VERSION:=\K.*' luci-app-3ginfo-lite/Makefile | sed 's/^/v/')
+          latest_release=$(wget -qO- -t1 -T2 ${{ env.url_release }} | awk -F '"' '/tag_name/{print $4}')
           has_update=$([ "${latest_version}" != "${latest_release}" ] && echo true || echo false)
           echo "latest_version=${latest_version}" >> $GITHUB_OUTPUT
           echo "has_update=${has_update}" >> $GITHUB_OUTPUT
@@ -63,11 +62,11 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          name: Release ${{steps.check_version.outputs.latest_version}}
-          tag_name: ${{steps.check_version.outputs.latest_version}}
+          name: Release ${{ steps.check_version.outputs.latest_version }}
+          tag_name: ${{ steps.check_version.outputs.latest_version }}
 
   job_build_3ginfo:
-    name: Build 3ginfo (main)
+    name: Build 3ginfo-lite (main)
     needs: job_check
     if: needs.job_check.outputs.has_update == 'true'
     runs-on: ubuntu-latest
@@ -82,7 +81,7 @@ jobs:
 
       - name: Cache openwrt SDK
         id: cache-sdk
-        uses: actions/cache@v3
+        uses: actions/cache@v4
         with:
           path: sdk
           key: openwrt-sdk-snapshot-x86-64
@@ -130,11 +129,11 @@ jobs:
           echo "status=success" >> $GITHUB_OUTPUT
           echo "FIRMWARE=$PWD" >> $GITHUB_ENV
 
-      - name: Upload 3ginfo (main) ipks to release
+      - name: Upload 3ginfo-lite (main) ipks to release
         uses: softprops/action-gh-release@v1
         if: steps.compile.outputs.status == 'success'
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          tag_name: ${{needs.job_check.outputs.3ginfo_version}}
+          tag_name: ${{ needs.job_check.outputs.ginfo_version }}
           files: ${{ env.FIRMWARE }}/base/luci-app-3ginfo-mod*.*
