@@ -1,7 +1,9 @@
-name: "Auto compile with OpenWrt SDK"
+#
+# Auto compile luci-app-3ginfo-lite with OpenWrt SDK
+# Adapted from working luci-theme-argon workflow
+#
 
-permissions:
-  contents: write
+name: "Auto compile with OpenWrt SDK"
 
 on:
   repository_dispatch:
@@ -22,6 +24,7 @@ env:
 
 jobs:
   job_check:
+    if: github.repository == ${{ github.repository }}
     name: Check Version
     runs-on: ubuntu-latest
     outputs:
@@ -29,36 +32,31 @@ jobs:
       has_update: ${{ steps.check_version.outputs.has_update }}
 
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
+      - name: Checkout
+        uses: actions/checkout@main
         with:
           fetch-depth: 0
-          ref: main
+          ref: "main"
 
       - name: Check version
         id: check_version
-        shell: bash
         env:
-          RELEASE_API: https://api.github.com/repos/${{ github.repository }}/releases/latest
+          url_release: https://api.github.com/repos/${{ github.repository }}/releases/latest
         run: |
           latest_version=$(grep -oP 'PKG_VERSION:=\K.*' luci-app-3ginfo-lite/Makefile | sed 's/^/v/')
-          latest_release=$(wget -qO- -t1 -T3 "$RELEASE_API" | jq -r '.tag_name // empty')
+          latest_release=$(wget -qO- -t1 -T2 ${{ env.url_release }} | awk -F '"' '/tag_name/{print $4}')
+          has_update=$([ "${latest_version}" != "${latest_release}" ] && echo true || echo false)
 
-          has_update=false
-          if [[ -n "$latest_version" && "$latest_version" != "$latest_release" ]]; then
-            has_update=true
-          fi
+          echo "latest_version=${latest_version}" >> $GITHUB_OUTPUT
+          echo "has_update=${has_update}" >> $GITHUB_OUTPUT
 
-          echo "latest_version=$latest_version" >> "$GITHUB_OUTPUT"
-          echo "has_update=$has_update" >> "$GITHUB_OUTPUT"
+          echo "latest_version: ${latest_version}"
+          echo "latest_release: ${latest_release}"
+          echo "has_update: ${has_update}"
 
-          echo "Detected version: $latest_version"
-          echo "Latest release:  $latest_release"
-          echo "Has update:      $has_update"
-
-      - name: Create new release tag
-        if: ${{ steps.check_version.outputs.has_update == 'true' }}
-        uses: softprops/action-gh-release@v2
+      - name: Generate new tag & release
+        if: steps.check_version.outputs.has_update == 'true'
+        uses: softprops/action-gh-release@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
@@ -66,98 +64,75 @@ jobs:
           tag_name: ${{ steps.check_version.outputs.latest_version }}
 
   job_build_3ginfo:
-    name: Build 3ginfo-lite (main)
+    name: Build luci-app-3ginfo-lite (main)
     needs: job_check
-    if: ${{ needs.job_check.outputs.has_update == 'true' }}
+    if: needs.job_check.outputs.has_update == 'true'
     runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
 
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-          ref: main
-
-      - name: Install required packages
-        shell: bash
+      - name: Install dependencies
         run: |
-          sudo apt-get -qq update
-          sudo apt-get -qq install -y zstd build-essential clang flex bison g++ gawk gcc-multilib \
-            g++-multilib gettext git libncurses5-dev libssl-dev python3-venv rsync unzip zlib1g-dev file wget jq
-          sudo apt-get -qq autoremove --purge
-          sudo apt-get -qq clean
+          echo "Install required build dependencies..."
+          sudo -E apt-get -qq update
+          sudo -E apt-get -qq install -y zstd build-essential clang flex bison g++ gawk gcc-multilib g++-multilib gettext \
+            git libncurses5-dev libssl-dev python3-venv rsync unzip zlib1g-dev file wget
+          sudo -E apt-get -qq autoremove --purge
+          sudo -E apt-get -qq clean
 
       - name: Cache OpenWrt SDK
         id: cache-sdk
-        uses: actions/cache@v4
+        uses: actions/cache@v3
         with:
           path: sdk
           key: openwrt-sdk-x86-64-v24.10.0
 
-      - name: Download and extract SDK
-        if: ${{ steps.cache-sdk.outputs.cache-hit != 'true' }}
+      - name: Initialize SDK environment
+        if: steps.cache-sdk.outputs.cache-hit != 'true'
         env:
-          SDK_URL: https://archive.openwrt.org/releases/24.10.0/targets/x86/64/openwrt-sdk-24.10.0-x86-64_gcc-13.3.0_musl.Linux-x86_64.tar.zst
-        shell: bash
+          url_sdk: https://archive.openwrt.org/releases/24.10.0/targets/x86/64/openwrt-sdk-24.10.0-x86-64_gcc-13.3.0_musl.Linux-x86_64.tar.zst
         run: |
-          wget -q "$SDK_URL"
-          file_name=$(basename "$SDK_URL")
-          mkdir -p sdk
-          tar --zstd -xvf "$file_name" -C sdk --strip-components=1
+          wget ${{ env.url_sdk }}
+          file_name=$(basename "${{ env.url_sdk }}")
+          mkdir sdk && tar --zstd -xvf $file_name -C ./sdk --strip-components=1
           cd sdk
+          echo "src-git base https://github.com/openwrt/openwrt.git;main" > feeds.conf
+          echo "src-git-full packages https://github.com/openwrt/packages.git;master" >> feeds.conf
+          echo "src-git-full luci https://github.com/openwrt/luci.git;master" >> feeds.conf
+          echo "src-git-full routing https://git.openwrt.org/feed/routing.git;master" >> feeds.conf
+          git clone -b main https://github.com/${{ github.repository }}.git package/downloads/luci-app-3ginfo-lite
           ./scripts/feeds update -a
           ./scripts/feeds install -a
           make defconfig
 
-      - name: Link luci-app-3ginfo-lite package
-        shell: bash
-        run: |
-          ln -sf "$(pwd)/luci-app-3ginfo-lite" sdk/package/luci-app-3ginfo-lite
-
-      - name: Configure package
-        shell: bash
+      - name: Configure luci-app-3ginfo-lite
         run: |
           cd sdk
-          cat <<EOF > .config
-          CONFIG_ALL_NONSHARED=n
-          CONFIG_ALL_KMODS=n
-          CONFIG_ALL=n
-          CONFIG_AUTOREMOVE=n
-          CONFIG_LUCI_LANG_zh_Hans=y
-          CONFIG_PACKAGE_luci-app-3ginfo-lite=m
-          EOF
+          ./scripts/feeds install luci-app-3ginfo-lite
+          echo "CONFIG_ALL_NONSHARED=n" > .config
+          echo "CONFIG_ALL_KMODS=n" >> .config
+          echo "CONFIG_ALL=n" >> .config
+          echo "CONFIG_AUTOREMOVE=n" >> .config
+          echo "CONFIG_LUCI_LANG_zh_Hans=y" >> .config
+          echo "CONFIG_PACKAGE_luci-app-3ginfo-lite=m" >> .config
           make defconfig
 
       - name: Compile luci-app-3ginfo-lite
         id: compile
-        shell: bash
         run: |
           cd sdk
-          echo "Building luci-app-3ginfo-lite..."
-          make package/luci-app-3ginfo-lite/compile -j$(nproc) V=s
-          echo "status=success" >> "$GITHUB_OUTPUT"
+          echo "make package/luci-app-3ginfo-lite/{clean,compile} -j$(nproc)"
+          make package/luci-app-3ginfo-lite/{clean,compile} -j$(nproc)
+          mv bin/packages/x86_64/base/ ../
+          rm .config .config.old
+          cd ..
+          echo "status=success" >> $GITHUB_OUTPUT
+          echo "FIRMWARE=$PWD" >> $GITHUB_ENV
 
-      - name: Find generated IPK files
-        id: find_ipk
-        shell: bash
-        run: |
-          files=$(find sdk/bin/packages -type f -name "luci-app-3ginfo-lite*.ipk")
-          if [[ -z "$files" ]]; then
-            echo "No IPK files found!"
-            exit 1
-          fi
-          echo "ipk_files=$files" >> "$GITHUB_OUTPUT"
-          echo "Found IPK files:"
-          echo "$files"
-
-      - name: Upload IPK files to release
-        if: ${{ steps.compile.outputs.status == 'success' }}
-        uses: softprops/action-gh-release@v2
+      - name: Upload luci-app-3ginfo-lite IPKs to release
+        uses: softprops/action-gh-release@v1
+        if: steps.compile.outputs.status == 'success'
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           tag_name: ${{ needs.job_check.outputs.ginfo_version }}
-          files: |
-            sdk/bin/packages/**/*.ipk
+          files: ${{ env.FIRMWARE }}/base/luci-app-3ginfo-lite*.ipk
