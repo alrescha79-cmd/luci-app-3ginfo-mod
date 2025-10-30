@@ -1,24 +1,13 @@
-#
-# Copyright (c) 2022-2023 SMALLPROGRAM <https://github.com/smallprogram>
-# Description: Auto compile
-#
-
-#
-# Fork and compile the latest version yourself using Github Actions
-#   1.Into the repository of your own fork
-#   2.Into the repository [Settings]
-#   3.[Code and automation - Actions] ↓ [General] → [Workflow permissions] ↓  Check the [Read and write permissions] and [Save]
-#   4.Let's take [Actions]
-#
-
 name: "Auto compile with OpenWrt SDK"
+permissions:
+  contents: write
 on:
   repository_dispatch:
   workflow_dispatch:
     inputs:
       ssh:
         description: "SSH connection to Actions"
-        required: false
+        required: true
         default: "false"
   push:
     branches:
