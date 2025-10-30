@@ -115,19 +115,30 @@ jobs:
           cd sdk
           echo "Building package/luci-app-3ginfo-lite..."
           make package/luci-app-3ginfo-lite/compile -j1 V=s || exit 1
-          echo "Listing build output..."
+          echo "Build completed. Listing output files:"
           find bin/packages -name "*.ipk" -type f
           cd ..
           echo "status=success" >> $GITHUB_OUTPUT
-          echo "FIRMWARE=$PWD/sdk/bin/packages/x86_64" >> $GITHUB_ENV
+
+      - name: Find and prepare IPK files
+        id: find_ipk
+        run: |
+          echo "Searching for IPK files..."
+          find sdk/bin/packages -name "luci-app-3ginfo-lite*.ipk" -type f
+          IPK_FILES=$(find sdk/bin/packages -name "luci-app-3ginfo-lite*.ipk" -type f | tr '\n' ' ')
+          if [ -z "$IPK_FILES" ]; then
+            echo "No IPK files found!"
+            exit 1
+          fi
+          echo "Found IPK files: $IPK_FILES"
+          echo "ipk_files=$IPK_FILES" >> $GITHUB_OUTPUT
 
       - name: Upload 3ginfo-lite ipks to release
         uses: softprops/action-gh-release@v1
-        if: steps.compile.outputs.status == 'success'
+        if: steps.compile.outputs.status == 'success' && steps.find_ipk.outputs.ipk_files != ''
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           tag_name: ${{ needs.job_check.outputs.ginfo_version }}
           files: |
-            sdk/bin/packages/x86_64/base/luci-app-3ginfo-lite*.ipk
-            sdk/bin/packages/x86_64/packages/luci-app-3ginfo-lite*.ipk
+            sdk/bin/packages/**/luci-app-3ginfo-lite*.ipk
