@@ -14,9 +14,11 @@
 This modified version adds **full support for HiLink modems** (Huawei/Orbit) that use **mac-vlan connection method**:
 
 ### Screenshot
+
 ![image](image.png)
 
-### ✨ New Features:
+### ✨ New Features
+
 - ✅ **HiLink Authentication System** - Support for modems that require login (e.g., Huawei B312-926/929)
 - ✅ **Multiple Authentication Methods** - SHA256 hash, base64 encoding, token-based, session-based
 - ✅ **Auto-detection** - Automatically detect HiLink modem IP addresses including mac-vlan interfaces
@@ -25,14 +27,16 @@ This modified version adds **full support for HiLink modems** (Huawei/Orbit) tha
 - ✅ **Indonesian Language Support** - Full translation for Indonesian users (Bahasa Indonesia)
 - ✅ **Web UI Configuration** - Configure HiLink authentication directly from LuCI interface
 
-### 🔧 Technical Improvements:
+### 🔧 Technical Improvements
+
 - Multi-endpoint data extraction (device/signal, monitoring/status, net/signal-para, net/cell-info)
 - Fallback mechanisms for different tag naming conventions in HiLink API
 - BusyBox-compatible scripts (no grep -P dependency)
 - Comprehensive error handling for authentication failures
 - Support for both traditional AT command modems and HiLink web API modems
 
-### 📱 Tested HiLink Devices:
+### 📱 Tested HiLink Devices
+
 - ✅ Huawei B312-926
 - ✅ Huawei B312-929 (with mac-vlan)
 - ✅ Other Huawei HiLink modems should work with similar authentication methods
@@ -51,14 +55,14 @@ Download the latest release IPK from [Releases page](https://github.com/alrescha
 
 ```bash
 # Download IPK for your architecture
-wget https://github.com/alrescha79-cmd/luci-app-3ginfo-mod/releases/download/v1.0.9/luci-app-3ginfo-mod_1.0.9-20251031_all.ipk
+wget https://github.com/alrescha79-cmd/luci-app-3ginfo-mod/releases/download/v1.0.9/luci-app-3ginfo-mod_1.0.9_all.ipk
 
 # Install dependencies
 opkg update
 opkg install wget-nossl sms-tool
 
 # Install the package
-opkg install luci-app-3ginfo-mod_1.0.9-20251031_all.ipk
+opkg install luci-app-3ginfo-mod_1.0.9_all.ipk
 ```
 
 ### Configuration for HiLink Modems
@@ -314,7 +318,7 @@ See [workflow configuration](.github/workflows/build-ipk.yml) for details.
 
 ## � Changelog
 
-### v1.0.8 (2025-10-30)
+### v1.0.9 (2025-10-31)
 - ✅ Added HiLink authentication system with multiple methods
 - ✅ Added auto-detection for HiLink modem IP addresses
 - ✅ Added configurable authentication mode (Automatic/Manual)
