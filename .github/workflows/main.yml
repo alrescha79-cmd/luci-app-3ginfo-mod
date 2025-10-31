@@ -3,12 +3,23 @@ permissions:
   contents: write
 on:
   repository_dispatch:
-  workflow_dispatch: {}
+  workflow_dispatch:
+    inputs:
+      force_build:
+        description: 'Force build even if version unchanged'
+        required: false
+        default: 'false'
+        type: choice
+        options:
+          - 'true'
+          - 'false'
   push:
     branches:
       - 'main'
+      - 'dev'
     paths:
       - 'luci-app-3ginfo-lite/Makefile'
+      - 'luci-app-3ginfo-lite/**'
 env:
   TZ: Asia/Jakarta
 
@@ -25,7 +36,6 @@ jobs:
         uses: actions/checkout@main
         with:
           fetch-depth: 0
-          ref: 'main'
 
       - name: Check version
         id: check_version
@@ -34,15 +44,27 @@ jobs:
         run: |
           latest_version=$(grep -oP 'PKG_VERSION:=\K.*' luci-app-3ginfo-lite/Makefile | sed 's/^/v/')
           pkg_release=$(grep -oP 'PKG_RELEASE:=\K.*' luci-app-3ginfo-lite/Makefile)
-          latest_release=$(wget -qO- -t1 -T2 ${{env.url_release}} | awk -F '"' '/tag_name/{print $4}')
-          has_update=$([ "${latest_version}" != "${latest_release}" ] && echo true || echo false)
+          latest_release=$(wget -qO- -t1 -T2 ${{env.url_release}} | awk -F '"' '/tag_name/{print $4}' || echo "")
+          
+          # Check if force build is enabled
+          force_build="${{ github.event.inputs.force_build }}"
+          if [ "$force_build" = "true" ]; then
+            echo "Force build enabled"
+            has_update=true
+          else
+            has_update=$([ "${latest_version}" != "${latest_release}" ] && echo true || echo false)
+          fi
+          
           echo "latest_version=${latest_version}" >> $GITHUB_OUTPUT
           echo "pkg_release=${pkg_release}" >> $GITHUB_OUTPUT
           echo "has_update=${has_update}" >> $GITHUB_OUTPUT
-          echo "latest_version: ${latest_version}"
-          echo "pkg_release: ${pkg_release}"
-          echo "latest_release: ${latest_release}"
-          echo "has_update: ${has_update}"
+          echo "==================================="
+          echo "Current version: ${latest_version}"
+          echo "Release date: ${pkg_release}"
+          echo "Latest release: ${latest_release}"
+          echo "Force build: ${force_build}"
+          echo "Has update: ${has_update}"
+          echo "==================================="
           
       - name: Generate new tag & release
         if: steps.check_version.outputs.has_update == 'true'
@@ -50,8 +72,31 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          name: luci-app-3ginfo-mod
+          name: luci-app-3ginfo-mod ${{steps.check_version.outputs.latest_version}}
           tag_name: ${{steps.check_version.outputs.latest_version}}
+          body: |
+            ## luci-app-3ginfo-mod ${{steps.check_version.outputs.latest_version}}
+            
+            **Release Date:** ${{steps.check_version.outputs.pkg_release}}
+            
+            ### Installation
+            
+            Download the appropriate IPK file for your architecture and install:
+            
+            ```bash
+            opkg update
+            opkg install luci-app-3ginfo-mod_*.ipk
+            ```
+            
+            ### Upgrade
+            
+            ```bash
+            opkg upgrade luci-app-3ginfo-mod_*.ipk
+            ```
+            
+            Configuration files will be preserved automatically.
+            
+            See [CHANGELOG.md](https://github.com/${{ github.repository }}/blob/main/CHANGELOG.md) for details.
 
 
   job_build:
@@ -64,7 +109,6 @@ jobs:
         uses: actions/checkout@main
         with:
           fetch-depth: 0
-          ref: 'main'
           
       - name: Install packages
         run: |
@@ -103,6 +147,9 @@ jobs:
         run: |
           mkdir -p sdk/package/luci-app-3ginfo-mod
           cp -r luci-app-3ginfo-lite/* sdk/package/luci-app-3ginfo-mod/
+          echo "Package copied to SDK"
+          echo "Verifying Makefile version:"
+          grep "PKG_VERSION\|PKG_RELEASE" sdk/package/luci-app-3ginfo-mod/Makefile
           
       - name: Configure IPK
         run: |
@@ -121,22 +168,30 @@ jobs:
         id: compile
         run: |
           cd sdk
-          echo "make package/luci-app-3ginfo-mod/compile -j$(nproc) V=s"
+          echo "==================================="
+          echo "Building luci-app-3ginfo-mod"
+          echo "Version: ${{needs.job_check.outputs.version}}"
+          echo "Release: ${{needs.job_check.outputs.release}}"
+          echo "==================================="
           make package/luci-app-3ginfo-mod/compile -j$(nproc) V=s
           cd ..
           mkdir -p ipk_output
           find sdk/bin/packages -name "luci-app-3ginfo-mod*.ipk" -exec cp {} ipk_output/ \;
           find sdk/bin/packages -name "luci-i18n-3ginfo*.ipk" -exec cp {} ipk_output/ \; || true
           cd ipk_output
-          # Rename IPK file with PKG_RELEASE
+          echo "==================================="
+          echo "Generated IPK files:"
+          ls -lh *.ipk
+          echo ""
+          echo "Verifying package info:"
           for ipk in luci-app-3ginfo-mod*.ipk; do
             if [ -f "$ipk" ]; then
-              new_name=$(echo "$ipk" | sed "s/\(luci-app-3ginfo-mod_[^_]*\)_\(.*\)\.ipk/\1-${{needs.job_check.outputs.release}}_\2.ipk/")
-              mv "$ipk" "$new_name"
-              echo "Renamed: $ipk -> $new_name"
+              echo "File: $ipk"
+              # Extract and display package info
+              tar -xzOf "$ipk" ./control.tar.gz | tar -xzOf - ./control | grep -E "Package|Version" || true
             fi
           done
-          ls -lh
+          echo "==================================="
           echo "status=success" >> $GITHUB_OUTPUT
           
       - name: Upload IPK to release

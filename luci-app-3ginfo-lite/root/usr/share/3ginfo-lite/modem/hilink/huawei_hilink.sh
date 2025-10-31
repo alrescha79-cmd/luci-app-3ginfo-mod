@@ -4,12 +4,15 @@
 #
 # (c) 2024 modified by Rafał Wabik - IceG - From eko.one.pl forum
 #
-# (c) 2025 modified for B312-929 mac-vlan support
+# (c) 2025 modified by Alrescha79-cmd for B312-929 mac-vlan support
 #
 
 IP=$1
 [ -z "$IP" ] && exit 0
 [ -e /usr/bin/wget ] || exit 0
+
+# Set RES variable for mccmnc.dat path
+RES="/usr/share/3ginfo-lite"
 
 # Get credentials from config if available
 USERNAME=$(uci -q get 3ginfo.@3ginfo[0].hilink_username)
@@ -193,8 +196,8 @@ if [ $authenticated -eq 0 ]; then
 	# Still continue to try fetching data - some endpoints might work without auth
 fi
 
-# Fetch modem information
-files="device/signal monitoring/status net/current-plmn net/signal-para device/information device/basic_information"
+# Fetch modem information - include traffic statistics
+files="device/signal monitoring/status monitoring/traffic-statistics net/current-plmn net/signal-para net/cell-info device/information device/basic_information"
 for f in $files; do
 	nf=$(echo $f | sed 's!/!-!g')
 	success=0
@@ -340,27 +343,48 @@ if [ "x$MODE" = "xLTE" ] || [ "x$MODE" = "xNOSERVICE" ]; then
 	# Try multiple sources for RSRP
 	RSRP=$(getvaluens device-signal rsrp)
 	[ -z "$RSRP" ] && RSRP=$(getvaluens device-signal Rsrp)
+	[ -z "$RSRP" ] && RSRP=$(getvaluens device-signal RSRP)
 	[ -z "$RSRP" ] && RSRP=$(getvaluens monitoring-status rsrp)
+	[ -z "$RSRP" ] && RSRP=$(getvaluens monitoring-status Rsrp)
 	[ -z "$RSRP" ] && RSRP=$(getvaluens net-signal-para rsrp)
+	[ -z "$RSRP" ] && RSRP=$(getvaluens net-signal-para Rsrp)
+	[ -z "$RSRP" ] && RSRP=$(getvaluens net-cell-info rsrp)
+	[ -z "$RSRP" ] && RSRP=$(getvaluens net-cell-info Rsrp)
 	
 	# Try multiple sources for SINR
 	SINR=$(getvaluens device-signal sinr)
 	[ -z "$SINR" ] && SINR=$(getvaluens device-signal Sinr)
+	[ -z "$SINR" ] && SINR=$(getvaluens device-signal SINR)
 	[ -z "$SINR" ] && SINR=$(getvaluens monitoring-status sinr)
+	[ -z "$SINR" ] && SINR=$(getvaluens monitoring-status Sinr)
 	[ -z "$SINR" ] && SINR=$(getvaluens net-signal-para sinr)
+	[ -z "$SINR" ] && SINR=$(getvaluens net-signal-para Sinr)
+	[ -z "$SINR" ] && SINR=$(getvaluens net-cell-info sinr)
+	[ -z "$SINR" ] && SINR=$(getvaluens net-cell-info Sinr)
 	
 	# Try multiple sources for RSRQ
 	RSRQ=$(getvaluens device-signal rsrq)
 	[ -z "$RSRQ" ] && RSRQ=$(getvaluens device-signal Rsrq)
+	[ -z "$RSRQ" ] && RSRQ=$(getvaluens device-signal RSRQ)
 	[ -z "$RSRQ" ] && RSRQ=$(getvaluens monitoring-status rsrq)
+	[ -z "$RSRQ" ] && RSRQ=$(getvaluens monitoring-status Rsrq)
 	[ -z "$RSRQ" ] && RSRQ=$(getvaluens net-signal-para rsrq)
+	[ -z "$RSRQ" ] && RSRQ=$(getvaluens net-signal-para Rsrq)
+	[ -z "$RSRQ" ] && RSRQ=$(getvaluens net-cell-info rsrq)
+	[ -z "$RSRQ" ] && RSRQ=$(getvaluens net-cell-info Rsrq)
 fi
 
 # Get RSSI for all modes
 if [ -z "$RSSI" ]; then
 	RSSI=$(getvaluens device-signal Rssi)
+	[ -z "$RSSI" ] && RSSI=$(getvaluens device-signal RSSI)
+	[ -z "$RSSI" ] && RSSI=$(getvaluens device-signal rssi)
 	[ -z "$RSSI" ] && RSSI=$(getvaluens monitoring-status rssi)
+	[ -z "$RSSI" ] && RSSI=$(getvaluens monitoring-status Rssi)
 	[ -z "$RSSI" ] && RSSI=$(getvaluens net-signal-para rssi)
+	[ -z "$RSSI" ] && RSSI=$(getvaluens net-signal-para Rssi)
+	[ -z "$RSSI" ] && RSSI=$(getvaluens net-cell-info rssi)
+	[ -z "$RSSI" ] && RSSI=$(getvaluens net-cell-info Rssi)
 fi
 
 MODEL=$(getvalue device-information DeviceName)
@@ -373,21 +397,19 @@ else
 	[ -n "$MODEL" ] && MODEL="Huawei $MODEL ($class)"
 fi
 
+# Get Firmware
 FW=$(getvalue device-information SoftwareVersion)
+[ -z "$FW" ] && FW=$(getvalue device-basic_information softwareversion)
 if [ -n "$FW" ]; then
 	rev=$(getvalue device-information HardwareVersion)
-	FW="$rev / $FW"
+	[ -z "$rev" ] && rev=$(getvalue device-basic_information hardwareversion)
+	[ -n "$rev" ] && FW="$rev / $FW"
 fi
+[ -z "$FW" ] && FW='-'
 
-if [ -z "$FW" ]
-then
-	FW='-'
-fi
-
-if [ -z "$TEMP" ]
-then
-	TEMP='-'
-fi
+# Get Temperature
+TEMP=$(getvalue monitoring-status msisdn)
+[ -z "$TEMP" ] && TEMP='-'
 
 COPSA=$(getvaluen net-current-plmn Numeric)
 COPSB=$(echo "${COPSA}" | cut -c1-3)
@@ -438,9 +460,14 @@ fi
 
 # Try multiple sources for LAC
 LAC_HEX=$(getvalue net-signal-para Lac)
+[ -z "$LAC_HEX" ] && LAC_HEX=$(getvalue net-signal-para LAC)
 [ -z "$LAC_HEX" ] && LAC_HEX=$(getvalue net-signal-para lac)
 [ -z "$LAC_HEX" ] && LAC_HEX=$(getvalue monitoring-status lac)
+[ -z "$LAC_HEX" ] && LAC_HEX=$(getvalue monitoring-status Lac)
 [ -z "$LAC_HEX" ] && LAC_HEX=$(getvalue device-signal lac)
+[ -z "$LAC_HEX" ] && LAC_HEX=$(getvalue device-signal Lac)
+[ -z "$LAC_HEX" ] && LAC_HEX=$(getvalue net-cell-info lac)
+[ -z "$LAC_HEX" ] && LAC_HEX=$(getvalue net-cell-info Lac)
 
 if [ -z "$LAC_HEX" ]; then
 	/usr/bin/wget -t 3 -O /tmp/add-param "http://$IP/config/deviceinformation/add_param.xml" > /dev/null 2>&1
@@ -463,10 +490,27 @@ then
 	LAC_HEX='-'
 fi
 
+# Initialize LAC_DEC if not set
+if [ -z "$LAC_DEC" ]; then
+	if [ -n "$LAC_HEX" ] && [ "$LAC_HEX" != "-" ]; then
+		LAC_DEC=$(echo $((0x$LAC_HEX)))
+	else
+		LAC_DEC='-'
+	fi
+fi
+
 # Try multiple sources for CID
 CID_HEX=$(getvalue net-signal-para CellID)
+[ -z "$CID_HEX" ] && CID_HEX=$(getvalue net-signal-para CellId)
 [ -z "$CID_HEX" ] && CID_HEX=$(getvalue net-signal-para cellid)
+[ -z "$CID_HEX" ] && CID_HEX=$(getvalue net-signal-para Cellid)
 [ -z "$CID_HEX" ] && CID_HEX=$(getvalue monitoring-status cellid)
+[ -z "$CID_HEX" ] && CID_HEX=$(getvalue monitoring-status CellID)
+[ -z "$CID_HEX" ] && CID_HEX=$(getvalue monitoring-status CellId)
+[ -z "$CID_HEX" ] && CID_HEX=$(getvalue device-signal cellid)
+[ -z "$CID_HEX" ] && CID_HEX=$(getvalue device-signal CellID)
+[ -z "$CID_HEX" ] && CID_HEX=$(getvalue net-cell-info cellid)
+[ -z "$CID_HEX" ] && CID_HEX=$(getvalue net-cell-info CellID)
 [ -z "$CID_HEX" ] && CID_HEX=$(getvalue device-signal cell_id)
 
 # If CID is in decimal, convert to hex
@@ -531,18 +575,68 @@ for endpoint in "device/information" "device/basic_information" "net/current-plm
 	fi
 done
 
-# Extract IMEI
+# Extract IMEI - try multiple sources
 NR_IMEI=$(getvalue device-information Imei)
+[ -z "$NR_IMEI" ] && NR_IMEI=$(getvalue device-information imei)
 [ -z "$NR_IMEI" ] && NR_IMEI=$(getvalue device-basic_information Imei)
+[ -z "$NR_IMEI" ] && NR_IMEI=$(getvalue device-basic_information imei)
+[ -z "$NR_IMEI" ] && NR_IMEI=$(getvalue monitoring-status Imei)
 
-# Extract IMSI
+# Extract IMSI - try multiple sources
 NR_IMSI=$(getvalue device-information Imsi)
+[ -z "$NR_IMSI" ] && NR_IMSI=$(getvalue device-information imsi)
 [ -z "$NR_IMSI" ] && NR_IMSI=$(getvalue device-basic_information Imsi)
+[ -z "$NR_IMSI" ] && NR_IMSI=$(getvalue device-basic_information imsi)
+[ -z "$NR_IMSI" ] && NR_IMSI=$(getvalue monitoring-status Imsi)
 
-# Extract ICCID
+# Extract ICCID - try multiple sources
 NR_ICCID=$(getvalue device-information Iccid)
+[ -z "$NR_ICCID" ] && NR_ICCID=$(getvalue device-information iccid)
 [ -z "$NR_ICCID" ] && NR_ICCID=$(getvalue monitoring-status Iccid)
+[ -z "$NR_ICCID" ] && NR_ICCID=$(getvalue monitoring-status iccid)
+[ -z "$NR_ICCID" ] && NR_ICCID=$(getvalue monitoring-status Simiccid)
 [ -z "$NR_ICCID" ] && NR_ICCID=$(getvalue device-basic_information Iccid)
+[ -z "$NR_ICCID" ] && NR_ICCID=$(getvalue device-basic_information iccid)
+
+# Extract Connection Time and Traffic Statistics
+CONN_TIME=$(getvalue monitoring-traffic-statistics CurrentConnectTime)
+[ -z "$CONN_TIME" ] && CONN_TIME=$(getvalue monitoring-status CurrentConnectTime)
+[ -z "$CONN_TIME" ] && CONN_TIME=$(getvalue monitoring-status currentconnecttime)
+
+# Convert connection time to seconds and formatted string
+if [ -n "$CONN_TIME" ] && [ "$CONN_TIME" != "-" ] && [ "$CONN_TIME" != "0" ]; then
+	CT=$CONN_TIME
+	# Format: days, hours, minutes, seconds
+	days=$((CT / 86400))
+	hours=$(((CT % 86400) / 3600))
+	minutes=$(((CT % 3600) / 60))
+	seconds=$((CT % 60))
+	
+	if [ $days -gt 0 ]; then
+		CONN_TIME_SINCE="${days}d ${hours}h ${minutes}m ${seconds}s"
+	elif [ $hours -gt 0 ]; then
+		CONN_TIME_SINCE="${hours}h ${minutes}m ${seconds}s"
+	elif [ $minutes -gt 0 ]; then
+		CONN_TIME_SINCE="${minutes}m ${seconds}s"
+	else
+		CONN_TIME_SINCE="${seconds}s"
+	fi
+else
+	CT="-"
+	CONN_TIME="-"
+	CONN_TIME_SINCE="-"
+fi
+
+# Extract RX/TX bytes
+RX=$(getvaluen monitoring-traffic-statistics CurrentDownload)
+[ -z "$RX" ] && RX=$(getvaluen monitoring-traffic-statistics currentdownload)
+[ -z "$RX" ] && RX=$(getvaluen monitoring-status CurrentDownload)
+[ -z "$RX" ] && RX="-"
+
+TX=$(getvaluen monitoring-traffic-statistics CurrentUpload)
+[ -z "$TX" ] && TX=$(getvaluen monitoring-traffic-statistics currentupload)
+[ -z "$TX" ] && TX=$(getvaluen monitoring-status CurrentUpload)
+[ -z "$TX" ] && TX="-"
 
 # Get PCI (Physical Cell ID) - try multiple variations
 PCI=$(getvalue device-signal pci)
@@ -619,5 +713,70 @@ if [ "$CID_HEX" = "-" ]; then
 fi
 
 rm $cookie
+
+# JSON Output functions
+sanitize_string() {
+	[ -z "$1" ] && echo "-" || echo "$1" | tr -d '\r\n'
+}
+
+sanitize_number() {
+	[ -z "$1" ] && echo "-" || echo "$1"
+}
+
+# Output JSON
+cat <<EOF
+{
+"conn_time":"$(sanitize_string "$CONN_TIME")",
+"conn_time_sec":"$(sanitize_number "$CT")",
+"conn_time_since":"$(sanitize_string "$CONN_TIME_SINCE")",
+"rx":"$(sanitize_number "$RX")",
+"tx":"$(sanitize_number "$TX")",
+"modem":"$(sanitize_string "$MODEL")",
+"mtemp":"$(sanitize_string "$TEMP")",
+"firmware":"$(sanitize_string "$FW")",
+"cport":"$(sanitize_string "$IP")",
+"protocol":"$(sanitize_string "$PROTO")",
+"csq":"$(sanitize_number "$CSQ")",
+"signal":"$(sanitize_number "$CSQ_PER")",
+"operator_name":"$(sanitize_string "$COPS")",
+"operator_mcc":"$(sanitize_string "$COPS_MCC")",
+"operator_mnc":"$(sanitize_string "$COPS_MNC")",
+"location":"$(sanitize_string "$LOC")",
+"mode":"$(sanitize_string "$MODE")",
+"registration":"$(sanitize_string "$REG")",
+"simslot":"",
+"imei":"$(sanitize_string "$NR_IMEI")",
+"imsi":"$(sanitize_string "$NR_IMSI")",
+"iccid":"$(sanitize_string "$NR_ICCID")",
+"lac_dec":"$(sanitize_number "$LAC_DEC")",
+"lac_hex":"$(sanitize_string "$LAC_HEX")",
+"tac_dec":"-",
+"tac_hex":"-",
+"tac_h":"-",
+"tac_d":"-",
+"cid_dec":"$(sanitize_number "$CID_DEC")",
+"cid_hex":"$(sanitize_string "$CID_HEX")",
+"pci":"$(sanitize_number "$PCI")",
+"earfcn":"$(sanitize_number "$EARFCN")",
+"pband":"$(sanitize_string "$PBAND")",
+"s1band":"-",
+"s1pci":"-",
+"s1earfcn":"-",
+"s2band":"-",
+"s2pci":"-",
+"s2earfcn":"-",
+"s3band":"-",
+"s3pci":"-",
+"s3earfcn":"-",
+"s4band":"-",
+"s4pci":"-",
+"s4earfcn":"-",
+"rsrp":"$(sanitize_number "$RSRP")",
+"rsrq":"$(sanitize_number "$RSRQ")",
+"rssi":"$(sanitize_number "$RSSI")",
+"sinr":"$(sanitize_number "$SINR")"
+}
+EOF
+
 break
 

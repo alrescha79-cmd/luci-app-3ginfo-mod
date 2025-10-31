@@ -1,0 +1,50 @@
+#!/bin/sh
+# Post-installation script for luci-app-3ginfo-mod
+
+# Check if this is an upgrade or fresh install
+if [ -z "$PKG_UPGRADE" ]; then
+	echo "Fresh installation detected"
+else
+	echo "Upgrade installation detected"
+fi
+
+# Set execute permissions for all scripts
+chmod +x /usr/share/3ginfo-lite/*.sh 2>/dev/null
+chmod +x /usr/share/3ginfo-lite/*.gcom 2>/dev/null
+chmod +x /usr/share/3ginfo-lite/modem/hilink/*.sh 2>/dev/null
+
+# Ensure hilink scripts are executable
+chmod +x /usr/share/3ginfo-lite/detect_hilink.sh 2>/dev/null
+chmod +x /usr/share/3ginfo-lite/setup-hilink.sh 2>/dev/null
+chmod +x /usr/share/3ginfo-lite/test-hilink.sh 2>/dev/null
+chmod +x /usr/share/3ginfo-lite/modem/hilink/huawei_hilink.sh 2>/dev/null
+chmod +x /usr/share/3ginfo-lite/modem/hilink/zte.sh 2>/dev/null
+chmod +x /usr/share/3ginfo-lite/modem/hilink/alcatel_hilink.sh 2>/dev/null
+
+# Initialize 3ginfo config if it doesn't exist
+if ! uci -q get 3ginfo.@3ginfo[0] >/dev/null 2>&1; then
+	echo "Creating 3ginfo configuration..."
+	uci set 3ginfo.@3ginfo[0]=3ginfo
+	uci set 3ginfo.@3ginfo[0].device=''
+	uci set 3ginfo.@3ginfo[0].website='http://www.btsearch.pl/szukaj.php?mode=std&search='
+	uci set 3ginfo.@3ginfo[0].hilink_ip=''
+	uci set 3ginfo.@3ginfo[0].hilink_username=''
+	uci set 3ginfo.@3ginfo[0].hilink_password=''
+	uci set 3ginfo.@3ginfo[0].hilink_auth_mode='auto'
+	uci commit 3ginfo
+fi
+
+# Initialize modemdefine config if it doesn't exist
+if ! uci -q show modemdefine >/dev/null 2>&1; then
+	echo "Creating modemdefine configuration..."
+	touch /etc/config/modemdefine
+	uci commit modemdefine
+fi
+
+# Clear LuCI cache
+rm -rf /tmp/luci-indexcache 2>/dev/null
+rm -rf /tmp/luci-modulecache/ 2>/dev/null
+
+echo "Installation completed successfully"
+
+exit 0
