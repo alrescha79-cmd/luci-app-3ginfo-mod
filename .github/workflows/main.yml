@@ -1,0 +1,114 @@
+name: Build IPK with OpenWrt SDK
+
+on:
+  push:
+    branches: [ main ]
+    tags:
+      - 'v*'
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    name: Build IPK for ${{ matrix.arch }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: x86_64
+            sdk_url: https://downloads.openwrt.org/releases/23.05.3/targets/x86/64/openwrt-sdk-23.05.3-x86-64_gcc-12.3.0_musl.Linux-x86_64.tar.xz
+          - arch: aarch64_generic
+            sdk_url: https://downloads.openwrt.org/releases/23.05.3/targets/armsr/armv8/openwrt-sdk-23.05.3-armsr-armv8_gcc-12.3.0_musl.Linux-x86_64.tar.xz
+          - arch: arm_cortex-a9
+            sdk_url: https://downloads.openwrt.org/releases/23.05.3/targets/bcm53xx/generic/openwrt-sdk-23.05.3-bcm53xx-generic_gcc-12.3.0_musl_eabi.Linux-x86_64.tar.xz
+          - arch: mipsel_24kc
+            sdk_url: https://downloads.openwrt.org/releases/23.05.3/targets/ramips/mt7621/openwrt-sdk-23.05.3-ramips-mt7621_gcc-12.3.0_musl.Linux-x86_64.tar.xz
+          - arch: mips_24kc
+            sdk_url: https://downloads.openwrt.org/releases/23.05.3/targets/ath79/generic/openwrt-sdk-23.05.3-ath79-generic_gcc-12.3.0_musl.Linux-x86_64.tar.xz
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential libncurses5-dev gawk git libssl-dev gettext zlib1g-dev swig unzip time rsync python3 python3-setuptools
+
+      - name: Download and extract OpenWrt SDK
+        run: |
+          wget -q ${{ matrix.sdk_url }}
+          tar xf *.tar.xz
+          rm *.tar.xz
+          mv openwrt-sdk-* openwrt-sdk
+
+      - name: Update feeds
+        working-directory: openwrt-sdk
+        run: |
+          ./scripts/feeds update -a
+          ./scripts/feeds install -a
+
+      - name: Copy package to SDK
+        run: |
+          mkdir -p openwrt-sdk/package/luci-app-3ginfo-lite
+          cp -r luci-app-3ginfo-lite/* openwrt-sdk/package/luci-app-3ginfo-lite/
+
+      - name: Configure SDK
+        working-directory: openwrt-sdk
+        run: |
+          echo "CONFIG_PACKAGE_luci-app-3ginfo-mod=m" >> .config
+          make defconfig
+
+      - name: Build package
+        working-directory: openwrt-sdk
+        run: |
+          make package/luci-app-3ginfo-lite/compile V=s -j$(nproc)
+
+      - name: Collect IPK files
+        run: |
+          mkdir -p artifacts
+          find openwrt-sdk/bin/packages -name "*.ipk" -exec cp {} artifacts/ \;
+
+      - name: List built packages
+        run: |
+          echo "Built packages:"
+          ls -lh artifacts/
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: luci-app-3ginfo-lite-${{ matrix.arch }}
+          path: artifacts/*.ipk
+          if-no-files-found: error
+
+  release:
+    name: Create Release
+    needs: build
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/v')
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: release-artifacts
+
+      - name: Prepare release files
+        run: |
+          mkdir -p release
+          find release-artifacts -name "*.ipk" -exec cp {} release/ \;
+          ls -lh release/
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v1
+        with:
+          files: release/*.ipk
+          draft: false
+          prerelease: false
+          generate_release_notes: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
