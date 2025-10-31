@@ -246,6 +246,28 @@ function formatDuration(sec) {
     return time;
 }
 
+function formatBytes(bytes) {
+    if (bytes === '-' || bytes === '' || bytes === null || bytes === undefined) { return '-'; }
+    var b = parseInt(bytes);
+    if (isNaN(b) || b < 0) { return '-'; }
+    
+    var units = ['B', 'KB', 'MB', 'GB', 'TB'];
+    var i = 0;
+    var value = b;
+    
+    while (value >= 1024 && i < units.length - 1) {
+        value /= 1024;
+        i++;
+    }
+    
+    // Format dengan 1 desimal untuk KB ke atas, tanpa desimal untuk Bytes
+    if (i === 0) {
+        return value + ' ' + units[i];
+    } else {
+        return value.toFixed(1) + ' ' + units[i];
+    }
+}
+
 function formatDateTime(s) {
 	if (s.length == 14) {
 		return s.replace(/(\d{4})(\d{2})(\d{2})(\d{2})(\d{2})(\d{2})/, "$1-$2-$3 $4:$5:$6");
@@ -649,7 +671,7 @@ simDialog: baseclass.extend({
 						view.innerHTML = String.format('<img style="width: 16px; height: 16px; vertical-align: middle;" src="%s"/>' + ' ' +_('Waiting for connection data...'), wicon, p);
 						}
 						else {
-						view.innerHTML = String.format('<img style="width: 16px; height: 16px; vertical-align: middle;" src="%s"/>' + ' ' + formatDuration(json.conn_time_sec) + ' ' + ' | \u25bc\u202f' + json.rx + ' \u25b2\u202f' + json.tx, ticon, t);
+						view.innerHTML = String.format('<img style="width: 16px; height: 16px; vertical-align: middle;" src="%s"/>' + ' ' + formatDuration(json.conn_time_sec) + ' ' + ' | \u25bc\u202f' + formatBytes(json.rx) + ' \u25b2\u202f' + formatBytes(json.tx), ticon, t);
 						}
 					}
 
