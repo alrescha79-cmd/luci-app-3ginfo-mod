@@ -51,14 +51,14 @@ Download the latest release IPK from [Releases page](https://github.com/alrescha
 
 ```bash
 # Download IPK for your architecture
-wget https://github.com/alrescha79-cmd/luci-app-3ginfo-mod/releases/download/v1.0.8/luci-app-3ginfo-lite_1.0.8_all.ipk
+wget https://github.com/alrescha79-cmd/luci-app-3ginfo-mod/releases/download/v1.0.9/luci-app-3ginfo-mod_1.0.9-20251031_all.ipk
 
 # Install dependencies
 opkg update
 opkg install wget-nossl sms-tool
 
 # Install the package
-opkg install luci-app-3ginfo-lite_1.0.8_all.ipk
+opkg install luci-app-3ginfo-mod_1.0.9-20251031_all.ipk
 ```
 
 ### Configuration for HiLink Modems
@@ -312,7 +312,7 @@ See [workflow configuration](.github/workflows/build-ipk.yml) for details.
 
 ---
 
-## 📝 Changelog
+## � Changelog
 
 ### v1.0.8 (2025-10-30)
 - ✅ Added HiLink authentication system with multiple methods

@@ -197,9 +197,15 @@ fi
 
 O=""
 if [ -e /usr/bin/sms_tool ]; then
-	O=$(sms_tool -D -d $DEVICE at "AT+CPIN?;+CSQ;+COPS=3,0;+COPS?;+COPS=3,2;+COPS?;+CREG=2;+CREG?")
+	O=$(sms_tool -D -d $DEVICE at "AT+CPIN?;+CSQ;+COPS=3,0;+COPS?;+COPS=3,2;+COPS?;+CREG=2;+CREG?" 2>/dev/null)
 else
 	O=$(gcom -d $DEVICE -s $RES/info.gcom 2>/dev/null)
+fi
+
+# Check if we got valid output
+if [ -z "$O" ]; then
+	echo '{"error":"No response from modem"}'
+	exit 0
 fi
 
 getpath() {

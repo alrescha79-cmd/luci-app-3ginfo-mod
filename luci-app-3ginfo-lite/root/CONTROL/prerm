@@ -1,0 +1,16 @@
+#!/bin/sh
+# Pre-removal script for luci-app-3ginfo-mod
+
+# Only run cleanup on complete removal, not on upgrade
+if [ -z "$PKG_UPGRADE" ]; then
+	echo "Removing package..."
+	# Clear LuCI cache
+	rm -rf /tmp/luci-indexcache 2>/dev/null
+	rm -rf /tmp/luci-modulecache/ 2>/dev/null
+	
+	echo "Package removed. Configuration files preserved."
+else
+	echo "Upgrading package, preserving configuration..."
+fi
+
+exit 0

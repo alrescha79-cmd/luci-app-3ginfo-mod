@@ -177,35 +177,57 @@ pg.setAttribute('title', '%s'.format(v) + ' | ' + tip + ' ');
 }
 
 function SIMdata(data) {
-	var sdata = JSON.parse(data);
-
-	if (sdata.simslot.length > 0) {
-		return ui.itemlist(E('span'), [
-		_('SIM Slot'), sdata.simslot,
-		_('SIM IMSI'), sdata.imsi,
-		_('SIM ICCID'), sdata.iccid,
-		_('Modem IMEI'), sdata.imei,
-		_('Hint'), _('CLICK ME TO SEE NEW MENU')
-		]);
-	}
-	else {
-		return ui.itemlist(E('span'), [
-		_('SIM IMSI'), sdata.imsi,
-		_('SIM ICCID'), sdata.iccid,
-		_('Modem IMEI'), sdata.imei,
-		_('Hint'), _('CLICK ME TO SEE NEW MENU')
-		]);
+	try {
+		// Check if data is valid JSON
+		if (!data || typeof data !== 'string' || data.trim().length === 0) {
+			return E('span', {}, _('No data available'));
+		}
+		
+		// Try to parse JSON
+		var sdata = JSON.parse(data);
+		
+		if (sdata.simslot && sdata.simslot.length > 0) {
+			return ui.itemlist(E('span'), [
+			_('SIM Slot'), sdata.simslot,
+			_('SIM IMSI'), sdata.imsi || '-',
+			_('SIM ICCID'), sdata.iccid || '-',
+			_('Modem IMEI'), sdata.imei || '-',
+			_('Hint'), _('CLICK ME TO SEE NEW MENU')
+			]);
+		}
+		else {
+			return ui.itemlist(E('span'), [
+			_('SIM IMSI'), sdata.imsi || '-',
+			_('SIM ICCID'), sdata.iccid || '-',
+			_('Modem IMEI'), sdata.imei || '-',
+			_('Hint'), _('CLICK ME TO SEE NEW MENU')
+			]);
+		}
+	} catch(e) {
+		console.error('Error parsing SIM data:', e);
+		console.error('Raw data:', data);
+		return E('span', {}, _('Error loading SIM data'));
 	}
 }
 
 function active_select() {
 	uci.load('modemdefine').then(function() {
 		var modemz = (uci.get('modemdefine', '@modemdefine[1]', 'comm_port'));
-		if (!modemz) {
-			document.getElementById("modc").disabled = true;
+		var modcEl = document.getElementById("modc");
+		if (modcEl) {
+			if (!modemz) {
+				modcEl.disabled = true;
+			}
+			else {
+				modcEl.disabled = false;
+			}
 		}
-		else {
-			document.getElementById("modc").disabled = false;
+	}).catch(function(e) {
+		console.warn('Error loading modemdefine config:', e);
+		// Config doesn't exist yet, disable button if it exists
+		var modcEl = document.getElementById("modc");
+		if (modcEl) {
+			modcEl.disabled = true;
 		}
 	});
 }
@@ -379,8 +401,20 @@ simDialog: baseclass.extend({
 		},
 
 		render: function(content) {
+			try {
+				// Validate content before parsing
+				if (!content || typeof content !== 'string' || content.trim().length === 0) {
+					ui.addNotification(null, E('p', _('No modem data available')), 'error');
+					return E('div', {}, _('Error: No data from modem'));
+				}
 
-			var json = JSON.parse(content);
+				var json = JSON.parse(content);
+			} catch(e) {
+				console.error('Error parsing JSON in simDialog:', e);
+				console.error('Raw content:', content);
+				ui.addNotification(null, E('p', _('Error parsing modem data')), 'error');
+				return E('div', {}, _('Error loading modem information'));
+			}
 
 			if (json) {
 				if (!json.imei.length > 2) {
@@ -480,8 +514,19 @@ simDialog: baseclass.extend({
 
 		if (data != null){
 		try {
+			// Validate data before parsing
+			if (!data || typeof data !== 'string' || data.trim().length === 0) {
+				throw new Error('Empty or invalid data received');
+			}
+			
+			// Check if data starts with valid JSON character
+			var trimmedData = data.trim();
+			if (!trimmedData.startsWith('{') && !trimmedData.startsWith('[')) {
+				console.error('Invalid JSON format. Data starts with:', trimmedData.substring(0, 50));
+				throw new Error('Data is not valid JSON format');
+			}
 
-		var json = JSON.parse(data);
+			var json = JSON.parse(data);
 
 			if(!json.hasOwnProperty('error')){
 				
@@ -527,9 +572,34 @@ simDialog: baseclass.extend({
 			pollData: poll.add(function() {
 				return L.resolveDefault(fs.exec_direct('/usr/share/3ginfo-lite/3ginfo.sh', 'json'))
 					.then(function(res) {
-					var json = JSON.parse(res);
+					try {
+						// Validate response before parsing
+						if (!res || typeof res !== 'string' || res.trim().length === 0) {
+							console.warn('Empty response from modem script');
+							return null;
+						}
+						
+						// Check if response is valid JSON
+						var trimmedRes = res.trim();
+						if (!trimmedRes.startsWith('{') && !trimmedRes.startsWith('[')) {
+							console.error('Invalid JSON format in poll. Response starts with:', trimmedRes.substring(0, 50));
+							return null;
+						}
+						
+						var json = JSON.parse(res);
+					} catch(e) {
+						console.error('Error parsing JSON in poll:', e);
+						console.error('Raw response:', res ? res.substring(0, 200) : 'null');
+						return null;
+					}
+					
+					// Check if json is valid
+					if (!json || typeof json !== 'object') {
+						console.warn('Invalid JSON object in poll');
+						return null;
+					}
 
-				if (!json.cport.includes('192.')) {
+				if (!json.cport || !json.cport.includes('192.')) {
 					if (json.signal == '0' || json.signal == '') {
 						fs.exec('sleep 3');
 							if (json.signal == '0' || json.signal == '' || json.signal == '-') {
@@ -1147,7 +1217,7 @@ simDialog: baseclass.extend({
 		o.onclick = function() {
 
 		return uci.load('3ginfo').then(function() {
-		var searchsite = (uci.get('3ginfo', '@3ginfo[0]', 'website'));
+		var searchsite = (uci.get('3ginfo', '@3ginfo[0]', 'website') || 'http://www.btsearch.pl/szukaj.php?mode=std&search=');
 
 			if (searchsite.includes('btsearch')) {
 			//http://www.btsearch.pl/szukaj.php?mode=std&search=CellID
@@ -1194,7 +1264,10 @@ simDialog: baseclass.extend({
 
 			window.open(searchsite + json.operator_mcc + cutmnc + '.' + zzcid);
 			}
-    		});
+    		}).catch(function(e) {
+			console.error('Error loading 3ginfo config:', e);
+			ui.addNotification(null, E('p', _('Configuration not found. Please check installation.')), 'error');
+		});
 		};
 
 		return m.render();
