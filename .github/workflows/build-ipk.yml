@@ -4,15 +4,14 @@ permissions:
   contents: write
   packages: write
   
-
 on:
   repository_dispatch:
   workflow_dispatch:
     inputs:
       ssh:
         description: "SSH connection to Actions"
-        required: true
-        default: "true"
+        required: false
+        default: "false"
   push:
     branches:
       - "main"
@@ -33,7 +32,7 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@main
+        uses: actions/checkout@v4
         with:
           fetch-depth: 0
           ref: "main"
@@ -56,12 +55,15 @@ jobs:
 
       - name: Generate new tag & release
         if: steps.check_version.outputs.has_update == 'true'
-        uses: softprops/action-gh-release@v1
+        uses: softprops/action-gh-release@v2 # Diperbarui ke v2
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           name: Release ${{ steps.check_version.outputs.latest_version }}
           tag_name: ${{ steps.check_version.outputs.latest_version }}
+          # Rilis ini awalnya dibuat kosong, file akan ditambahkan oleh job_build
+          files: | 
+          body: "Rilis otomatis untuk ${{ steps.check_version.outputs.latest_version }}"
 
   job_build_3ginfo:
     name: Build luci-app-3ginfo-lite (main)
@@ -70,6 +72,10 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+      # Langkah 1: Checkout kode repositori Anda
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
       - name: Install dependencies
         run: |
           echo "Install required build dependencies..."
@@ -81,10 +87,10 @@ jobs:
 
       - name: Cache OpenWrt SDK
         id: cache-sdk
-        uses: actions/cache@v3
+        uses: actions/cache@v4
         with:
           path: sdk
-          key: openwrt-sdk-x86-64-v24.10.0
+          key: openwrt-sdk-x86-64-v24.10.0 # Ganti ini jika versi SDK berubah
 
       - name: Initialize SDK environment
         if: steps.cache-sdk.outputs.cache-hit != 'true'
@@ -99,7 +105,7 @@ jobs:
           echo "src-git-full packages https://github.com/openwrt/packages.git;master" >> feeds.conf
           echo "src-git-full luci https://github.com/openwrt/luci.git;master" >> feeds.conf
           echo "src-git-full routing https://git.openwrt.org/feed/routing.git;master" >> feeds.conf
-          git clone -b main https://github.com/${{ github.repository }}.git package/downloads/luci-app-3ginfo-lite
+          # Hapus 'git clone' dari sini
           ./scripts/feeds update -a
           ./scripts/feeds install -a
           make defconfig
@@ -107,7 +113,12 @@ jobs:
       - name: Configure luci-app-3ginfo-lite
         run: |
           cd sdk
-          ./scripts/feeds install luci-app-3ginfo-lite
+          # Buat symlink ke kode Anda yang sudah di-checkout
+          ln -s $PWD/../luci-app-3ginfo-lite package/luci-app-3ginfo-lite
+          
+          # Hapus 'feeds install' untuk paket ini karena sudah dilink secara lokal
+          # ./scripts/feeds install luci-app-3ginfo-lite
+          
           echo "CONFIG_ALL_NONSHARED=n" > .config
           echo "CONFIG_ALL_KMODS=n" >> .config
           echo "CONFIG_ALL=n" >> .config
@@ -122,17 +133,22 @@ jobs:
           cd sdk
           echo "make package/luci-app-3ginfo-lite/{clean,compile} -j$(nproc)"
           make package/luci-app-3ginfo-lite/{clean,compile} -j$(nproc)
-          mv bin/packages/x86_64/base/ ../
-          rm .config .config.old
+          
+          # Buat direktori artifacts dan pindahkan IPK ke sana
+          mkdir -p $PWD/../artifacts
+          find bin/packages/ -type f -name "luci-app-3ginfo-lite*.ipk" -exec mv {} $PWD/../artifacts/ \;
+          
           cd ..
           echo "status=success" >> $GITHUB_OUTPUT
-          echo "FIRMWARE=$PWD" >> $GITHUB_ENV
+          # Set variabel environment ke path artifacts
+          echo "IPK_PATH=$PWD/artifacts" >> $GITHUB_ENV
 
       - name: Upload luci-app-3ginfo-lite IPKs to release
-        uses: softprops/action-gh-release@v1
+        uses: softprops/action-gh-release@v2 # Diperbarui ke v2
         if: steps.compile.outputs.status == 'success'
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           tag_name: ${{ needs.job_check.outputs.ginfo_version }}
-          files: ${{ env.FIRMWARE }}/base/luci-app-3ginfo-lite*.ipk
+          # Arahkan ke file di dalam direktori artifacts
+          files: ${{ env.IPK_PATH }}/*.ipk
