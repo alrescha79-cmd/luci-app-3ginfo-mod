@@ -95,7 +95,9 @@ jobs:
           echo "src-git luci https://github.com/openwrt/luci.git;openwrt-23.05" >> feeds.conf
           ./scripts/feeds update -a
           ./scripts/feeds install -a
-          make download -j8
+          echo "CONFIG_ALL=n" > .config
+          make defconfig
+          make download -j8 || true
           
       - name: Copy package to SDK
         run: |
@@ -105,12 +107,14 @@ jobs:
       - name: Configure IPK
         run: |
           cd sdk
-          echo "CONFIG_ALL_NONSHARED=n" > .config
-          echo "CONFIG_ALL_KMODS=n" >> .config
-          echo "CONFIG_ALL=n" >> .config
-          echo "CONFIG_AUTOREMOVE=n" >> .config
-          echo "CONFIG_LUCI_LANG_zh_Hans=n" >> .config
-          echo "CONFIG_PACKAGE_luci-app-3ginfo-mod=m" >> .config
+          cat > .config <<EOF
+          CONFIG_ALL_NONSHARED=n
+          CONFIG_ALL_KMODS=n
+          CONFIG_ALL=n
+          CONFIG_AUTOREMOVE=n
+          CONFIG_LUCI_LANG_zh_Hans=n
+          CONFIG_PACKAGE_luci-app-3ginfo-mod=m
+          EOF
           make defconfig
           
       - name: Compile IPK
