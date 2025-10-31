@@ -3,8 +3,6 @@ name: Build IPK with OpenWrt SDK
 on:
   push:
     branches: [ main ]
-    tags:
-      - 'v*'
   pull_request:
     branches: [ main ]
   workflow_dispatch:
@@ -21,12 +19,6 @@ jobs:
             sdk_url: https://downloads.openwrt.org/releases/23.05.3/targets/x86/64/openwrt-sdk-23.05.3-x86-64_gcc-12.3.0_musl.Linux-x86_64.tar.xz
           - arch: aarch64_generic
             sdk_url: https://downloads.openwrt.org/releases/23.05.3/targets/armsr/armv8/openwrt-sdk-23.05.3-armsr-armv8_gcc-12.3.0_musl.Linux-x86_64.tar.xz
-          - arch: arm_cortex-a9
-            sdk_url: https://downloads.openwrt.org/releases/23.05.3/targets/bcm53xx/generic/openwrt-sdk-23.05.3-bcm53xx-generic_gcc-12.3.0_musl_eabi.Linux-x86_64.tar.xz
-          - arch: mipsel_24kc
-            sdk_url: https://downloads.openwrt.org/releases/23.05.3/targets/ramips/mt7621/openwrt-sdk-23.05.3-ramips-mt7621_gcc-12.3.0_musl.Linux-x86_64.tar.xz
-          - arch: mips_24kc
-            sdk_url: https://downloads.openwrt.org/releases/23.05.3/targets/ath79/generic/openwrt-sdk-23.05.3-ath79-generic_gcc-12.3.0_musl.Linux-x86_64.tar.xz
 
     steps:
       - name: Checkout
@@ -87,7 +79,8 @@ jobs:
     name: Create Release
     needs: build
     runs-on: ubuntu-latest
-    if: startsWith(github.ref, 'refs/tags/v')
+    permissions:
+      contents: write
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -103,12 +96,36 @@ jobs:
           find release-artifacts -name "*.ipk" -exec cp {} release/ \;
           ls -lh release/
 
+      - name: Get current date
+        id: date
+        run: echo "date=$(date +'%Y%m%d-%H%M%S')" >> $GITHUB_OUTPUT
+
+      - name: Get short SHA
+        id: sha
+        run: echo "sha=$(echo ${{ github.sha }} | cut -c1-7)" >> $GITHUB_OUTPUT
+
       - name: Create Release
         uses: softprops/action-gh-release@v1
         with:
+          tag_name: v${{ steps.date.outputs.date }}-${{ steps.sha.outputs.sha }}
+          name: Release ${{ steps.date.outputs.date }}
           files: release/*.ipk
           draft: false
           prerelease: false
           generate_release_notes: true
+          body: |
+            ## luci-app-3ginfo-lite Build
+            
+            **Build Date:** ${{ steps.date.outputs.date }}
+            **Commit:** ${{ steps.sha.outputs.sha }}
+            
+            ### Supported Architectures:
+            - x86_64
+            - aarch64_generic (ARM 64-bit)
+            
+            ### Installation:
+            ```bash
+            opkg install luci-app-3ginfo-mod_*.ipk
+            ```
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
