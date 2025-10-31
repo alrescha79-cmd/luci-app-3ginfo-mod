@@ -1,9 +1,9 @@
-#
-# Auto compile luci-app-3ginfo-lite with OpenWrt SDK
-# Adapted from working luci-theme-argon workflow
-#
+name: "Auto compile IPK with OpenWrt SDK"
 
-name: "Auto compile with OpenWrt SDK"
+permissions:
+  contents: write
+  packages: write
+  
 
 on:
   repository_dispatch:
