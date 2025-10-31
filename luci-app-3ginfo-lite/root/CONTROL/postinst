@@ -13,6 +13,14 @@ chmod +x /usr/share/3ginfo-lite/*.sh 2>/dev/null
 chmod +x /usr/share/3ginfo-lite/*.gcom 2>/dev/null
 chmod +x /usr/share/3ginfo-lite/modem/hilink/*.sh 2>/dev/null
 
+# Ensure hilink scripts are executable
+chmod +x /usr/share/3ginfo-lite/detect_hilink.sh 2>/dev/null
+chmod +x /usr/share/3ginfo-lite/setup-hilink.sh 2>/dev/null
+chmod +x /usr/share/3ginfo-lite/test-hilink.sh 2>/dev/null
+chmod +x /usr/share/3ginfo-lite/modem/hilink/huawei_hilink.sh 2>/dev/null
+chmod +x /usr/share/3ginfo-lite/modem/hilink/zte.sh 2>/dev/null
+chmod +x /usr/share/3ginfo-lite/modem/hilink/alcatel_hilink.sh 2>/dev/null
+
 # Initialize 3ginfo config if it doesn't exist
 if ! uci -q get 3ginfo.@3ginfo[0] >/dev/null 2>&1; then
 	echo "Creating 3ginfo configuration..."

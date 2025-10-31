@@ -1,10 +1,12 @@
 #!/bin/sh
-# Copyright 2020-2024 Rafał Wabik (IceG) - From eko.one.pl forum
 # MIT License
 
 # Set execute permissions for scripts
 chmod +x /usr/share/3ginfo-lite/3ginfo.sh 2>&1 &
 chmod +x /usr/share/3ginfo-lite/detect.sh 2>&1 &
+chmod +x /usr/share/3ginfo-lite/detect_hilink.sh 2>&1 &
+chmod +x /usr/share/3ginfo-lite/setup-hilink.sh 2>&1 &
+chmod +x /usr/share/3ginfo-lite/test-hilink.sh 2>&1 &
 chmod +x /usr/share/3ginfo-lite/check.gcom 2>&1 &
 chmod +x /usr/share/3ginfo-lite/info.gcom 2>&1 &
 chmod +x /usr/share/3ginfo-lite/vendorproduct.gcom 2>&1 &

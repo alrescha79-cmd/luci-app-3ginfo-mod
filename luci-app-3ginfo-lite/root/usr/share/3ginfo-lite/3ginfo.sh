@@ -1,11 +1,5 @@
 #!/bin/sh
 
-#
-# (c) 2010-2025 Cezary Jackiewicz <cezary@eko.one.pl>
-#
-# (c) 2021-2025 modified by Rafał Wabik - IceG - From eko.one.pl forum
-#
-
 
 band4g() {
 # see https://en.wikipedia.org/wiki/LTE_frequency_bands
@@ -195,6 +189,29 @@ if [ -z "$DEVICE" ]; then
 	exit 0
 fi
 
+# Check if DEVICE is an IP address (HiLink modem)
+if echo "$DEVICE" | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$'; then
+	# HiLink modem detected - call hilink script
+	VENDOR=$(cat /tmp/hilink_vendor 2>/dev/null || echo "huawei")
+	case "$VENDOR" in
+		"huawei"|"HUAWEI")
+			$RES/modem/hilink/huawei_hilink.sh "$DEVICE"
+			;;
+		"zte"|"ZTE")
+			$RES/modem/hilink/zte.sh "$DEVICE"
+			;;
+		"alcatel"|"ALCATEL")
+			$RES/modem/hilink/alcatel_hilink.sh "$DEVICE"
+			;;
+		*)
+			# Default to Huawei
+			$RES/modem/hilink/huawei_hilink.sh "$DEVICE"
+			;;
+	esac
+	exit 0
+fi
+
+# Regular AT command modem
 O=""
 if [ -e /usr/bin/sms_tool ]; then
 	O=$(sms_tool -D -d $DEVICE at "AT+CPIN?;+CSQ;+COPS=3,0;+COPS?;+COPS=3,2;+COPS?;+CREG=2;+CREG?" 2>/dev/null)

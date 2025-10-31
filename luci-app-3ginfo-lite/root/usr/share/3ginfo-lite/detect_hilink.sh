@@ -27,6 +27,16 @@ for IP in $COMMON_IPS; do
 		# Try to access web interface
 		RESPONSE=$(wget -t 1 -T 2 -q -O - "http://$IP/api/device/information" 2>/dev/null)
 		if [ $? -eq 0 ] && [ -n "$RESPONSE" ]; then
+			# Detect vendor
+			if echo "$RESPONSE" | grep -qi "huawei"; then
+				echo "huawei" > /tmp/hilink_vendor
+			elif echo "$RESPONSE" | grep -qi "zte"; then
+				echo "zte" > /tmp/hilink_vendor
+			elif echo "$RESPONSE" | grep -qi "alcatel"; then
+				echo "alcatel" > /tmp/hilink_vendor
+			else
+				echo "huawei" > /tmp/hilink_vendor
+			fi
 			echo "$IP"
 			exit 0
 		fi
@@ -34,6 +44,7 @@ for IP in $COMMON_IPS; do
 		# Try alternative endpoint
 		RESPONSE=$(wget -t 1 -T 2 -q -O - "http://$IP/api/device/signal" 2>/dev/null)
 		if [ $? -eq 0 ] && [ -n "$RESPONSE" ]; then
+			echo "huawei" > /tmp/hilink_vendor
 			echo "$IP"
 			exit 0
 		fi
@@ -51,6 +62,16 @@ for iface in $(ip link show | grep -o "macvlan[0-9]*\|macvtap[0-9]*"); do
 		# Try to access modem at gateway
 		RESPONSE=$(wget -t 1 -T 2 -q -O - "http://$GATEWAY/api/device/information" 2>/dev/null)
 		if [ $? -eq 0 ] && [ -n "$RESPONSE" ]; then
+			# Detect vendor
+			if echo "$RESPONSE" | grep -qi "huawei"; then
+				echo "huawei" > /tmp/hilink_vendor
+			elif echo "$RESPONSE" | grep -qi "zte"; then
+				echo "zte" > /tmp/hilink_vendor
+			elif echo "$RESPONSE" | grep -qi "alcatel"; then
+				echo "alcatel" > /tmp/hilink_vendor
+			else
+				echo "huawei" > /tmp/hilink_vendor
+			fi
 			echo "$GATEWAY"
 			exit 0
 		fi
